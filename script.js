@@ -44,7 +44,7 @@ TRANSPARENT: false,
 BLOOM: true,
 BLOOM_ITERATIONS: 8,
 BLOOM_RESOLUTION: 256,
-BLOOM_INTENSITY: 0.8,
+BLOOM_INTENSITY: 0.3,
 BLOOM_THRESHOLD: 0.6,
 BLOOM_SOFT_KNEE: 0.7,
 SUNRAYS: true,
@@ -296,8 +296,8 @@ return Math.min(Math.max(input, 0), 1);
 
 function textureToCanvas (texture, width, height) {
   let captureCanvas = document.createElement('canvas');
-  captureCanvas.width = 256;
-  captureCanvas.height = 256;
+  captureCanvas.width = 1024;
+  captureCanvas.height = 1024;
   let ctx = captureCanvas.getContext('2d');
   captureCanvas.width = width;
   captureCanvas.height = height;
@@ -1323,7 +1323,7 @@ function drawLogo(){
     c.height = img.height;
     var ctx = c.getContext("2d");
     ctx.drawImage(img, 0, 0);
-
+    config.SPLAT_RADIUS = 0.1;
     for(var x = 0;  x < c.width; x += 5){
       for(var y = 0;  y < c.height; y += 5){
         var data = ctx.getImageData(x, y, 1, 1).data
