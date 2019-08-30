@@ -41,8 +41,8 @@
             }
 
             canvas {
-                width: 15cm;
-                height:15cm;
+                width: 100%;
+                height:100%;
             }
 
             .dg {
@@ -101,15 +101,15 @@
                 content: 'd';
             }
         </style>
-        <script>
-            window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
-            ga('create', 'UA-105392568-1', 'auto');
-            ga('send', 'pageview');
-        </script>
-        <script async src='https://www.google-analytics.com/analytics.js'></script>
     </head>
     <body>
-        <canvas></canvas>
-        <script src="./script.js"></script>
+      <canvas id="glcanvas" width="640" height="480"></canvas>
+
+        <body>
+          <!--
+          <script src="webgl-demo.js"></script>
+          <script src="gl-matrix.js"></script>
+        -->
+        <script src="./script_02.js"></script>
     </body>
 </html>

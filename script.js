@@ -22,6 +22,7 @@ SOFTWARE.
 'use strict';
 
 const canvas = document.getElementsByTagName('canvas')[0];
+
 resizeCanvas();
 
 let config = {
@@ -33,7 +34,7 @@ let config = {
   PRESSURE: 0.0,
   PRESSURE_ITERATIONS: 20,
   CURL: 25,
-  SPLAT_RADIUS: 0.05,
+  SPLAT_RADIUS: 2.05,
   SPLAT_FORCE: 24000,
   SHADING: true,
   COLORFUL: true,
@@ -50,6 +51,7 @@ let config = {
   SUNRAYS: true,
   SUNRAYS_RESOLUTION: 196,
   SUNRAYS_WEIGHT: 1.0,
+  COLORMODE:false,
 }
 
 function pointerPrototype () {
@@ -72,15 +74,11 @@ pointers.push(new pointerPrototype());
 
 const { gl, ext } = getWebGLContext(canvas);
 
-// if (isMobile()) {
-// //config.DYE_RESOLUTION = 512;
-// }
-// if (!ext.supportLinearFiltering) {
-// config.DYE_RESOLUTION = 512;
-// config.SHADING = false;
-// config.BLOOM = false;
-// config.SUNRAYS = false;
-// }
+
+
+
+
+
 
 startGUI();
 
@@ -122,7 +120,6 @@ function getWebGLContext (canvas) {
     formatR = getSupportedFormat(gl, gl.RGBA, gl.RGBA, halfFloatTexType);
   }
 
-  ga('send', 'event', isWebGL2 ? 'webgl2' : 'webgl', formatRGBA == null ? 'not supported' : 'supported');
 
   return {
     gl,
@@ -135,7 +132,57 @@ function getWebGLContext (canvas) {
     }
   };
 }
+function loadTexture(gl, url) {
+  const texture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, texture);
 
+  // Because images have to be download over the internet
+  // they might take a moment until they are ready.
+  // Until then put a single pixel in the texture so we can
+  // use it immediately. When the image has finished downloading
+  // we'll update the texture with the contents of the image.
+  const level = 0;
+  const internalFormat = gl.RGBA;
+  const width = 1;
+  const height = 1;
+  const border = 0;
+  const srcFormat = gl.RGBA;
+  const srcType = gl.UNSIGNED_BYTE;
+  const pixel = new Uint8Array([0, 0, 255, 255]);  // opaque blue
+  gl.texImage2D(gl.TEXTURE_2D, level, internalFormat,
+                width, height, border, srcFormat, srcType,
+                pixel);
+
+  const image = new Image();
+  image.onload = function() {
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(gl.TEXTURE_2D, level, internalFormat,
+                  srcFormat, srcType, image);
+
+    // WebGL1 has different requirements for power of 2 images
+    // vs non power of 2 images so check if the image is a
+    // power of 2 in both dimensions.
+    if (isPowerOf2(image.width) && isPowerOf2(image.height)) {
+       // Yes, it's a power of 2. Generate mips.
+       gl.generateMipmap(gl.TEXTURE_2D);
+    } else {
+       // No, it's not a power of 2. Turn off mips and set
+       // wrapping to clamp to edge
+       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    }
+    alert('loaded')
+  };
+  image.src = url;
+
+  return texture;
+}
+
+function isPowerOf2(value) {
+  return (value & (value - 1)) == 0;
+}
+const texture = loadTexture(gl, './T2_Footer_2x.png')
 function getSupportedFormat (gl, internalFormat, format, type)
 {
   if (!supportRenderTextureFormat(gl, internalFormat, format, type))
@@ -202,45 +249,7 @@ function startGUI () {
 
 
 
-  let github = gui.add({ fun : () => {
-    window.open('https://github.com/PavelDoGreat/WebGL-Fluid-Simulation');
-    ga('send', 'event', 'link button', 'github');
-  } }, 'fun').name('Github');
-  github.__li.className = 'cr function bigFont';
-  github.__li.style.borderLeft = '3px solid #8C8C8C';
-  let githubIcon = document.createElement('span');
-  github.domElement.parentElement.appendChild(githubIcon);
-  githubIcon.className = 'icon github';
 
-  let twitter = gui.add({ fun : () => {
-    ga('send', 'event', 'link button', 'twitter');
-    window.open('https://twitter.com/PavelDoGreat');
-  } }, 'fun').name('Twitter');
-  twitter.__li.className = 'cr function bigFont';
-  twitter.__li.style.borderLeft = '3px solid #8C8C8C';
-  let twitterIcon = document.createElement('span');
-  twitter.domElement.parentElement.appendChild(twitterIcon);
-  twitterIcon.className = 'icon twitter';
-
-  let discord = gui.add({ fun : () => {
-    ga('send', 'event', 'link button', 'discord');
-    window.open('https://discordapp.com/invite/CeqZDDE');
-  } }, 'fun').name('Discord');
-  discord.__li.className = 'cr function bigFont';
-  discord.__li.style.borderLeft = '3px solid #8C8C8C';
-  let discordIcon = document.createElement('span');
-  discord.domElement.parentElement.appendChild(discordIcon);
-  discordIcon.className = 'icon discord';
-
-  let app = gui.add({ fun : () => {
-    ga('send', 'event', 'link button', 'app');
-    window.open('http://onelink.to/5b58bn');
-  } }, 'fun').name('Check out mobile app');
-  app.__li.className = 'cr function appBigFont';
-  app.__li.style.borderLeft = '3px solid #00FF7F';
-  let appIcon = document.createElement('span');
-  app.domElement.parentElement.appendChild(appIcon);
-  appIcon.className = 'icon app';
 
   gui.close();
 }
@@ -495,6 +504,20 @@ vec2 uv = floor(vUv * SCALE * vec2(aspectRatio, 1.0));
 float v = mod(uv.x + uv.y, 2.0);
 v = v * 0.1 + 0.8;
 gl_FragColor = vec4(vec3(v), 1.0);
+}
+`);
+const t2Shader = compileShader(gl.FRAGMENT_SHADER, `
+precision highp float;
+precision highp sampler2D;
+varying vec2 vUv;
+uniform sampler2D uTexture;
+uniform float aspectRatio;
+#define SCALE 25.0;
+
+uniform sampler2D uSampler;
+
+void main () {
+      gl_FragColor = texture2D(uSampler, vUv*vec2(1,1));
 }
 `);
 
@@ -856,6 +879,8 @@ const vorticityProgram       = new Program(baseVertexShader, vorticityShader);
 const pressureProgram        = new Program(baseVertexShader, pressureShader);
 const gradienSubtractProgram = new Program(baseVertexShader, gradientSubtractShader);
 
+const t2Program    = new Program(baseVertexShader, t2Shader);
+
 const displayMaterial = new Material(baseVertexShader, displayShaderSource);
 
 function initFramebuffers () {
@@ -1105,7 +1130,47 @@ function applyInputs () {
 
 function step (dt) {
   gl.disable(gl.BLEND);
+
+
+  gl.viewport(0, 0, dye.width, dye.height);
+
+
+  if(config.COLORMODE){
+    t2Program.bind()
+    // // Tell WebGL we want to affect texture unit 0
+    gl.activeTexture(gl.TEXTURE0);
+    //
+    // // Bind the texture to texture unit 0
+     gl.bindTexture(gl.TEXTURE_2D, texture);
+    //
+    // // Tell the shader we bound the texture to texture unit 0
+    gl.uniform1i(t2Program.uniforms.uSampler, 0);
+    blit(dye.write.fbo);
+
+  dye.swap();
+  }
+
+
+  // gl.uniform1i(splatProgram.uniforms.uTarget, velocity.read.attach(0));
+  // gl.uniform1f(splatProgram.uniforms.aspectRatio, canvas.width / canvas.height);
+  // gl.uniform2f(splatProgram.uniforms.point, x, y);
+  // gl.uniform3f(splatProgram.uniforms.color, dx, dy, 0.0);
+  // gl.uniform1f(splatProgram.uniforms.radius, correctRadius(config.SPLAT_RADIUS / 100.0));
+  // blit(velocity.write.fbo);
+  // velocity.swap();
+  //
+  // gl.viewport(0, 0, dye.width, dye.height);
+  // gl.uniform1i(splatProgram.uniforms.uTarget, dye.read.attach(0));
+  // gl.uniform3f(splatProgram.uniforms.color, color.r, color.g, color.b);
+  // blit(dye.write.fbo);
+  // dye.swap();
+  //
+  //
+
   gl.viewport(0, 0, velocity.width, velocity.height);
+
+
+
 
   curlProgram.bind();
   gl.uniform2f(curlProgram.uniforms.texelSize, velocity.texelSizeX, velocity.texelSizeY);
@@ -1172,6 +1237,8 @@ function step (dt) {
 }
 
 function render (target) {
+
+
   if (config.BLOOM)
   applyBloom(dye.read, bloom);
   if (config.SUNRAYS) {
@@ -1192,10 +1259,12 @@ function render (target) {
   gl.viewport(0, 0, width, height);
 
   let fbo = target == null ? null : target.fbo;
+
   if (!config.TRANSPARENT)
   drawColor(fbo, normalizeColor(config.BACK_COLOR));
   if (target == null && config.TRANSPARENT)
   //drawCheckerboard(fbo);
+  //drawt2(fbo)
   drawDisplay(fbo, width, height);
 }
 
@@ -1205,9 +1274,17 @@ function drawColor (fbo, color) {
   blit(fbo);
 }
 
-function drawCheckerboard (fbo) {
-  checkerboardProgram.bind();
-  gl.uniform1f(checkerboardProgram.uniforms.aspectRatio, canvas.width / canvas.height);
+
+
+function drawt2 (fbo) {
+  // Tell WebGL we want to affect texture unit 0
+  gl.activeTexture(gl.TEXTURE0);
+
+  // Bind the texture to texture unit 0
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+
+  // Tell the shader we bound the texture to texture unit 0
+  gl.uniform1i(t2Program.uniforms.uSampler, 0);
   blit(fbo);
 }
 
@@ -1307,6 +1384,7 @@ function splatPointer (pointer) {
   let dx = pointer.deltaX * config.SPLAT_FORCE;
   let dy = pointer.deltaY * config.SPLAT_FORCE;
   splat(pointer.texcoordX, pointer.texcoordY, dx, dy, pointer.color);
+  //console.log(pointer)
 }
 function percentage(partialValue, totalValue) {
   return (100 * partialValue) / totalValue;
@@ -1368,7 +1446,7 @@ function drawLogo(){
   }
   img.src = './T2_Footer_2x.png'
 }
-drawLogo();
+//drawLogo();
 function splat (x, y, dx, dy, color) {
   gl.viewport(0, 0, velocity.width, velocity.height);
   splatProgram.bind();
@@ -1445,6 +1523,8 @@ window.addEventListener('touchend', e => {
 });
 
 window.addEventListener('keydown', e => {
+  if (e.code === 'KeyC')
+  config.COLORMODE = !config.COLORMODE;
   if (e.code === 'KeyP')
   config.PAUSED = !config.PAUSED;
   if (e.key === ' ')
@@ -1465,14 +1545,19 @@ function updatePointerDownData (pointer, id, posX, posY) {
 }
 
 function updatePointerMoveData (pointer, posX, posY) {
-  pointer.moved = pointer.down;
-  pointer.prevTexcoordX = pointer.texcoordX;
-  pointer.prevTexcoordY = pointer.texcoordY;
-  pointer.texcoordX = posX / canvas.width;
-  pointer.texcoordY = 1.0 - posY / canvas.height;
-  pointer.deltaX = correctDeltaX(pointer.texcoordX - pointer.prevTexcoordX);
-  pointer.deltaY = correctDeltaY(pointer.texcoordY - pointer.prevTexcoordY);
+  if(!config.COLORMODE){
+    pointer.moved = pointer.down;
+    pointer.prevTexcoordX = pointer.texcoordX;
+    pointer.prevTexcoordY = pointer.texcoordY;
+    pointer.texcoordX = posX / canvas.width;
+    pointer.texcoordY = 1.0 - posY / canvas.height;
+    pointer.deltaX = correctDeltaX(pointer.texcoordX - pointer.prevTexcoordX);
+    pointer.deltaY = correctDeltaY(pointer.texcoordY - pointer.prevTexcoordY);
+  }
 }
+
+
+
 
 function updatePointerUpData (pointer) {
   pointer.down = false;
